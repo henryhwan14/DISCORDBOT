@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.env
+.data
+*.sqlite3
+.data/
+data/positions.json
