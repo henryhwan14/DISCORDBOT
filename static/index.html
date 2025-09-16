@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Discord Trading Dashboard</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      }
+      body {
+        margin: 0;
+        padding: 0;
+        background: #121212;
+        color: #f2f2f2;
+      }
+      header {
+        padding: 1.5rem;
+        background: linear-gradient(45deg, #5865f2, #2b2d31);
+      }
+      header h1 {
+        margin: 0;
+        font-size: 1.8rem;
+      }
+      main {
+        padding: 2rem;
+        display: grid;
+        gap: 2rem;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      }
+      section {
+        background: rgba(44, 47, 51, 0.8);
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+        backdrop-filter: blur(6px);
+      }
+      h2 {
+        margin-top: 0;
+        font-size: 1.4rem;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th, td {
+        text-align: left;
+        padding: 0.5rem;
+      }
+      tbody tr:nth-child(odd) {
+        background: rgba(255, 255, 255, 0.03);
+      }
+      .price-up {
+        color: #00e676;
+      }
+      .price-down {
+        color: #ff5252;
+      }
+      label {
+        display: block;
+        margin-top: 1rem;
+        font-weight: 600;
+      }
+      input, select {
+        width: 100%;
+        padding: 0.6rem;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(0, 0, 0, 0.2);
+        color: inherit;
+        box-sizing: border-box;
+      }
+      button {
+        margin-top: 1.2rem;
+        width: 100%;
+        padding: 0.75rem;
+        border: none;
+        border-radius: 8px;
+        background: #5865f2;
+        color: #fff;
+        font-size: 1rem;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #4752c4;
+      }
+      .log {
+        margin-top: 1rem;
+        font-size: 0.9rem;
+        line-height: 1.4;
+        white-space: pre-line;
+      }
+      ul {
+        list-style: none;
+        padding: 0;
+      }
+      li + li {
+        margin-top: 0.5rem;
+      }
+      footer {
+        text-align: center;
+        padding: 1rem;
+        font-size: 0.8rem;
+        color: #888;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Discord 가상 주식 거래 대시보드</h1>
+      <p>실시간으로 변동하는 시뮬레이션 종목을 확인하고 거래하세요.</p>
+    </header>
+    <main>
+      <section>
+        <h2>실시간 시세</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>종목</th>
+              <th>가격</th>
+              <th>변동</th>
+              <th>고가/저가</th>
+              <th>거래량</th>
+            </tr>
+          </thead>
+          <tbody id="quotes"></tbody>
+        </table>
+      </section>
+      <section>
+        <h2>주문 입력</h2>
+        <form id="trade-form">
+          <label>
+            Discord 사용자 ID
+            <input type="text" id="user-id" placeholder="예: 1234567890" required />
+          </label>
+          <label>
+            종목 기호
+            <input type="text" id="symbol" placeholder="예: ACME" required />
+          </label>
+          <label>
+            수량
+            <input type="number" id="quantity" min="0" step="0.01" required />
+          </label>
+          <label>
+            매매 구분
+            <select id="side">
+              <option value="BUY">매수</option>
+              <option value="SELL">매도</option>
+            </select>
+          </label>
+          <button type="submit">주문 실행</button>
+        </form>
+        <div class="log" id="trade-log"></div>
+      </section>
+      <section>
+        <h2>포트폴리오</h2>
+        <p>위의 사용자 ID를 입력한 뒤 "포트폴리오 새로고침" 버튼을 누르세요.</p>
+        <button id="refresh-portfolio">포트폴리오 새로고침</button>
+        <ul id="portfolio-list"></ul>
+        <div class="log" id="portfolio-summary"></div>
+      </section>
+    </main>
+    <footer>Discord Bot Trading Suite · 실시간 데이터는 시뮬레이션 값을 기반으로 합니다.</footer>
+    <script>
+      const quotesBody = document.getElementById('quotes');
+      const tradeForm = document.getElementById('trade-form');
+      const tradeLog = document.getElementById('trade-log');
+      const portfolioList = document.getElementById('portfolio-list');
+      const portfolioSummary = document.getElementById('portfolio-summary');
+      const refreshPortfolioBtn = document.getElementById('refresh-portfolio');
+
+      const formatChange = (change, percent) => {
+        const cls = change >= 0 ? 'price-up' : 'price-down';
+        const sign = change >= 0 ? '+' : '';
+        return `<span class="${cls}">${sign}${change.toFixed(2)} (${sign}${percent.toFixed(2)}%)</span>`;
+      };
+
+      const renderQuoteRow = (quote) => {
+        const existing = document.querySelector(`[data-symbol="${quote.symbol}"]`);
+        const rowHtml = `
+          <tr data-symbol="${quote.symbol}">
+            <td>${quote.symbol}</td>
+            <td>${quote.price.toFixed(2)}</td>
+            <td>${formatChange(quote.change, quote.change_percent)}</td>
+            <td>${quote.high.toFixed(2)} / ${quote.low.toFixed(2)}</td>
+            <td>${quote.volume.toLocaleString()}</td>
+          </tr>`;
+        if (existing) {
+          existing.outerHTML = rowHtml;
+        } else {
+          quotesBody.insertAdjacentHTML('beforeend', rowHtml);
+        }
+      };
+
+      const connectWebSocket = () => {
+        const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        const ws = new WebSocket(`${protocol}://${window.location.host}/ws/quotes`);
+
+        ws.addEventListener('open', () => {
+          tradeLog.textContent = '실시간 시세 스트림에 연결되었습니다.';
+        });
+
+        ws.addEventListener('message', (event) => {
+          try {
+            const payload = JSON.parse(event.data);
+            if (payload.type === 'snapshot') {
+              quotesBody.innerHTML = '';
+              payload.data.forEach(renderQuoteRow);
+            } else if (payload.type === 'update') {
+              payload.data.forEach(renderQuoteRow);
+            }
+          } catch (error) {
+            console.error('WebSocket message parse error', error);
+          }
+        });
+
+        ws.addEventListener('close', () => {
+          tradeLog.textContent = '연결이 종료되었습니다. 3초 후 재연결을 시도합니다.';
+          setTimeout(connectWebSocket, 3000);
+        });
+
+        ws.addEventListener('error', () => ws.close());
+      };
+
+      const fetchPortfolio = async (userId) => {
+        if (!userId) {
+          tradeLog.textContent = '먼저 사용자 ID를 입력하세요.';
+          return;
+        }
+        try {
+          const response = await fetch(`/api/users/${encodeURIComponent(userId)}/portfolio`);
+          if (!response.ok) {
+            throw new Error(await response.text());
+          }
+          const data = await response.json();
+          portfolioList.innerHTML = '';
+          data.positions.forEach((position) => {
+            const li = document.createElement('li');
+            li.textContent = `${position.symbol}: ${position.quantity}주 (평단 ${position.average_price.toFixed(2)})`;
+            portfolioList.appendChild(li);
+          });
+          portfolioSummary.textContent = `누적 실현 손익: ${data.realized_pnl.toFixed(2)}`;
+        } catch (error) {
+          portfolioSummary.textContent = `포트폴리오 조회 실패: ${error.message}`;
+        }
+      };
+
+      tradeForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const userId = document.getElementById('user-id').value.trim();
+        const symbol = document.getElementById('symbol').value.trim().toUpperCase();
+        const quantity = Number(document.getElementById('quantity').value);
+        const side = document.getElementById('side').value;
+
+        if (!userId || !symbol || Number.isNaN(quantity) || quantity <= 0) {
+          tradeLog.textContent = '모든 필드를 올바르게 입력해주세요.';
+          return;
+        }
+
+        try {
+          const response = await fetch('/api/trades', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId, symbol, quantity, side }),
+          });
+          if (!response.ok) {
+            const payload = await response.json().catch(() => ({}));
+            throw new Error(payload.detail || '요청이 거절되었습니다.');
+          }
+          const result = await response.json();
+          tradeLog.textContent = `${result.symbol} ${result.quantity}주 ${side === 'BUY' ? '매수' : '매도'} 완료! 잔액: ${result.balance.toFixed(2)}`;
+          fetchPortfolio(userId);
+        } catch (error) {
+          tradeLog.textContent = `거래 오류: ${error.message}`;
+        }
+      });
+
+      refreshPortfolioBtn.addEventListener('click', () => {
+        const userId = document.getElementById('user-id').value.trim();
+        fetchPortfolio(userId);
+      });
+
+      connectWebSocket();
+    </script>
+  </body>
+</html>
