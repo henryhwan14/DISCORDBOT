@@ -1,0 +1,26 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  txnId     String   @unique
+  userId    String
+  delta     Int
+  actor     String
+  source    String
+  reason    String?
+  createdAt DateTime @default(now())
+}
+
+model WebhookDelivery {
+  id            Int      @id @default(autoincrement())
+  key           String   @unique
+  payloadHash   String
+  createdAt     DateTime @default(now())
+}

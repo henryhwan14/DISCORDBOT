@@ -1,0 +1,22 @@
+{
+  "name": "bot",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/index.ts",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "@discord-roblox/opencloud": "workspace:*",
+    "@discord-roblox/shared": "workspace:*",
+    "discord.js": "^14.13.0",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.17",
+    "tsx": "^3.12.7"
+  }
+}
