@@ -1,0 +1,13 @@
+{
+  "name": "discord-roblox-bridge",
+  "private": true,
+  "packageManager": "pnpm@8.15.0",
+  "scripts": {
+    "build": "pnpm -r run build",
+    "lint": "pnpm -r run lint",
+    "dev:bot": "pnpm --filter bot dev",
+    "dev:api": "pnpm --filter api dev",
+    "prisma:generate": "pnpm --filter api prisma generate",
+    "prisma:migrate": "pnpm --filter api prisma migrate deploy"
+  }
+}
